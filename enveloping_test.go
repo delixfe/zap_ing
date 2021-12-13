@@ -13,7 +13,7 @@ func TestNewEnveloping(t *testing.T) {
 
 	envFn := func(ent *zapcore.Entry, encoded *buffer.Buffer, output *buffer.Buffer) error {
 		output.AppendString("START ")
-		output.Write(encoded.Bytes())
+		_, _ = output.Write(encoded.Bytes())
 		output.AppendString(" END")
 		return nil
 	}

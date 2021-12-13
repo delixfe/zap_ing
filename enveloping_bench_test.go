@@ -12,7 +12,7 @@ import (
 
 func BenchmarkNewEnveloping(b *testing.B) {
 
-	rand := rand.New(rand.NewSource(0))
+	random := rand.New(rand.NewSource(0))
 
 	length := map[string]int{
 		"min": 559,
@@ -23,7 +23,7 @@ func BenchmarkNewEnveloping(b *testing.B) {
 
 	for lengthKey, lengthValue := range length {
 		encodedBytes := make([]byte, lengthValue)
-		_, _ = rand.Read(encodedBytes)
+		_, _ = random.Read(encodedBytes)
 		encodedBytes[lengthValue-1] = '\n'
 
 		staticEncoder := test_support.NewStaticEncoder(encodedBytes)
@@ -49,7 +49,7 @@ func BenchmarkNewEnveloping(b *testing.B) {
 				encoded.TrimNewline()
 				output.AppendString(syslogPrefix)
 				output.AppendString(ent.LoggerName)
-				output.Write(encoded.Bytes())
+				_, _ = output.Write(encoded.Bytes())
 				output.AppendByte('}')
 				output.AppendByte('\n')
 				return nil
