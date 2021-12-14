@@ -17,6 +17,8 @@ type fallbackCore struct {
 	zapcore.LevelEnabler
 	enc zapcore.Encoder
 	// fields set with `With(fields []zapcore.Field)` will be ignored
+	// check will not be called
+	// level will be ignored
 	primary CloneWithEncoderCore
 	// fields set with `With(fields []zapcore.Field)` will be ignored
 	fallback CloneWithEncoderCore
@@ -35,6 +37,7 @@ func (c *fallbackCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapco
 	return ce
 }
 func (c *fallbackCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	// this means at least one allocation per Write
 	primErr := c.primary.CloneWithEncoder(c.enc).Write(ent, fields)
 	if primErr == nil {
 		return nil
