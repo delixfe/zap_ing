@@ -13,6 +13,9 @@ type CloneWithEncoderCore interface {
 	CloneWithEncoder(encoder zapcore.Encoder) zapcore.Core
 }
 
+// With has no extra cost
+// Write has at least one extra allocation for primary clone
+// fields on primary and fallback set with `With(fields []zapcore.Field)` will be ignored
 type fallbackOptimizedForWith struct {
 	zapcore.LevelEnabler
 	enc zapcore.Encoder
