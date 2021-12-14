@@ -9,11 +9,8 @@ import (
 
 type EnvelopingFn func(ent *zapcore.Entry, encoded *buffer.Buffer, output *buffer.Buffer) error
 
-// NewEnveloping creates a Core that duplicates log entries into two or more
-// underlying Cores.
-//
-// Calling it with a single Core returns the input unchanged, and calling
-// it with no input returns a no-op Core.
+// NewEnveloping creates a Core that envelopes an encoded message before
+// sending it to the writer.
 func NewEnveloping(enc zapcore.Encoder, ws zapcore.WriteSyncer, enab zapcore.LevelEnabler, envFn EnvelopingFn) zapcore.Core {
 	//creates a Core that writes logs to a WriteSyncer.
 	return &envelopingCore{
