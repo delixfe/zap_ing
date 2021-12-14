@@ -21,6 +21,8 @@ func NewEnveloping(enc zapcore.Encoder, ws zapcore.WriteSyncer, enab zapcore.Lev
 	}
 }
 
+var _ zapcore.Core = &envelopingCore{}
+
 type envelopingCore struct {
 	zapcore.LevelEnabler
 	enc   zapcore.Encoder
