@@ -25,15 +25,15 @@ func NewFailingSwitchable(inner appender.Appender) *FailingSwitchable {
 	}
 }
 
-func (a *FailingSwitchable) Enabled() bool {
+func (a *FailingSwitchable) Breaking() bool {
 	return a.enabled
 }
 
-func (a *FailingSwitchable) Enable() {
+func (a *FailingSwitchable) Break() {
 	a.enabled = true
 }
 
-func (a *FailingSwitchable) Disable() {
+func (a *FailingSwitchable) Fix() {
 	a.enabled = false
 }
 

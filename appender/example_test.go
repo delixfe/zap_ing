@@ -39,7 +39,7 @@ func Example_core() {
 
 	logger.Info("zappig")
 
-	failing.Enable()
+	failing.Break()
 
 	logger.Info("on the fallback")
 
@@ -69,14 +69,14 @@ func ExampleAsync() {
 
 	logger.Info("this logs async")
 
-	blocking.Enable()
+	blocking.Break()
 
 	for i := 0; i < 1001; i++ {
 		logger.Info("while blocked", zap.Int("i", i))
 	}
 
 	time.Sleep(time.Second)
-	blocking.Disable()
+	blocking.Fix()
 	async.Drain(ctx)
 
 	// Output:

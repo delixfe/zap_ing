@@ -29,11 +29,11 @@ func NewBlockingSwitchable(ctx context.Context, inner appender.Appender) *Blocki
 	}
 }
 
-func (a *BlockingSwitchable) Enabled() bool {
+func (a *BlockingSwitchable) Breaking() bool {
 	return a.enabled
 }
 
-func (a *BlockingSwitchable) Enable() {
+func (a *BlockingSwitchable) Break() {
 	if a.enabled {
 		return
 	}
@@ -41,7 +41,7 @@ func (a *BlockingSwitchable) Enable() {
 	a.waiting = make(chan struct{})
 }
 
-func (a *BlockingSwitchable) Disable() {
+func (a *BlockingSwitchable) Fix() {
 	a.enabled = false
 	close(a.waiting)
 }

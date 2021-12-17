@@ -1,7 +1,7 @@
 package chaos
 
 type Switchable interface {
-	Enabled() bool
-	Enable()
-	Disable()
+	Breaking() bool
+	Break()
+	Fix()
 }
