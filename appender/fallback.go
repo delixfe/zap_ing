@@ -5,20 +5,27 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var _ Appender = &fallback{}
+var _ Appender = &Fallback{}
 
-type fallback struct {
-	primary  Appender
-	fallback Appender
+type Fallback struct {
+	primary   Appender
+	secondary Appender
 }
 
-func (a *fallback) Write(p []byte, ent zapcore.Entry, fields []zapcore.Field) (n int, err error) {
+func NewFallback(primary, secondary Appender) *Fallback {
+	return &Fallback{
+		primary:   primary,
+		secondary: secondary,
+	}
+}
 
-	n, primErr := a.primary.Write(p, ent, fields)
+func (a *Fallback) Write(p []byte, ent zapcore.Entry) (n int, err error) {
+
+	n, primErr := a.primary.Write(p, ent)
 	if primErr == nil {
 		return n, nil
 	}
-	n, fallErr := a.fallback.Write(p, ent, fields)
+	n, fallErr := a.secondary.Write(p, ent)
 	if fallErr == nil {
 		return n, nil
 	}
@@ -28,20 +35,6 @@ func (a *fallback) Write(p []byte, ent zapcore.Entry, fields []zapcore.Field) (n
 
 }
 
-func (a *fallback) Append(enc zapcore.Encoder, ent zapcore.Entry, fields []zapcore.Field) error {
-	primErr := a.primary.Append(enc, ent, fields)
-	if primErr == nil {
-		return nil
-	}
-	fallErr := a.fallback.Append(enc, ent, fields)
-	if fallErr == nil {
-		return nil
-	}
-
-	// TODO: decide which error to return
-	return multierr.Append(primErr, fallErr)
-}
-
-func (a *fallback) Sync() error {
-	return multierr.Append(a.primary.Sync(), a.fallback.Sync())
+func (a *Fallback) Sync() error {
+	return multierr.Append(a.primary.Sync(), a.secondary.Sync())
 }

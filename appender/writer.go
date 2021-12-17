@@ -4,26 +4,20 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var _ Appender = &writer{}
+var _ Appender = &Writer{}
 
-type writer struct {
+type Writer struct {
 	out zapcore.WriteSyncer
 }
 
-func (a *writer) Write(p []byte, ent zapcore.Entry, fields []zapcore.Field) (n int, err error) {
+func NewWriter(out zapcore.WriteSyncer) *Writer {
+	return &Writer{out: out}
+}
+
+func (a *Writer) Write(p []byte, ent zapcore.Entry) (n int, err error) {
 	return a.out.Write(p)
 }
 
-func (a *writer) Append(enc zapcore.Encoder, ent zapcore.Entry, fields []zapcore.Field) (err error) {
-	buf, err := enc.EncodeEntry(ent, fields)
-	if err != nil {
-		return
-	}
-	defer buf.Free()
-	_, err = a.out.Write(buf.Bytes())
-	return err
-}
-
-func (a *writer) Sync() error {
+func (a *Writer) Sync() error {
 	return a.Sync()
 }

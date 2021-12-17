@@ -1,4 +1,4 @@
-package appender
+package internal
 
 import (
 	"time"

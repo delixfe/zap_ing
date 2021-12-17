@@ -1,15 +1,18 @@
-package appender
+package internal
 
 import (
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
+	"zap_ing/appender"
 	"zap_ing/internal/bufferpool"
 )
+
+// TODO: extract the decorator approach and remove
 
 // envelopingEncoder decorates zapcore.Encoder
 type envelopingEncoder struct {
 	inner zapcore.Encoder
-	envFn EnvelopingFn
+	envFn appender.EnvelopingFn
 }
 
 func (r *envelopingEncoder) Clone() zapcore.Encoder {
