@@ -3,16 +3,16 @@ package internal
 import (
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender"
 	"zap_ing/internal/bufferpool"
 )
 
 // TODO: extract the decorator approach and remove
+type EnvelopingFn func(input *buffer.Buffer, ent *zapcore.Entry, output *buffer.Buffer) error
 
 // envelopingEncoder decorates zapcore.Encoder
 type envelopingEncoder struct {
 	inner zapcore.Encoder
-	envFn appender.EnvelopingFn
+	envFn EnvelopingFn
 }
 
 func (r *envelopingEncoder) Clone() zapcore.Encoder {
@@ -28,7 +28,7 @@ func (r *envelopingEncoder) EncodeEntry(ent zapcore.Entry, fields []zapcore.Fiel
 		return nil, err
 	}
 	enveloped := bufferpool.Get()
-	err = r.envFn(&ent, encoded, enveloped)
+	err = r.envFn(encoded, &ent, enveloped)
 	encoded.Free()
 	if err != nil {
 		return nil, err
