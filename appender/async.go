@@ -2,6 +2,7 @@ package appender
 
 import (
 	"context"
+	"go.uber.org/multierr"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
 	"time"
@@ -110,7 +111,7 @@ func (a *Async) monitorQueueWrite() {
 // TODO: here we need some kind of a timeout...
 func (a *Async) Sync() error {
 	a.Drain(context.TODO())
-	return a.Sync()
+	return multierr.Append(a.primary.Sync(), a.fallback.Sync())
 }
 
 // Drain tries to gracefully drain the remaining buffered messages,
