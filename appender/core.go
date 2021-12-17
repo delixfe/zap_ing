@@ -12,6 +12,13 @@ var _ zapcore.Core = &appenderCore{}
 // 2. Write with p, ent
 // 3. Write with p and a subset of ent
 // A. Append with enc, ent, fields
+
+// Decision: variant 2
+// - we cannot keep the fields in an async process
+//	- they might hold references that might be already mutated or hinder GC
+// - without fields, we cannot use the Encoder to encode the message
+// TODO: change interface accordingly
+
 type Appender interface {
 
 	// Write
