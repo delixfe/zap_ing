@@ -77,6 +77,7 @@ func ExampleAsync() {
 
 	time.Sleep(time.Second)
 	blocking.Fix()
+
 	async.Drain(ctx)
 
 	// Output:

@@ -49,9 +49,9 @@ func (a *BlockingSwitchable) Fix() {
 func (a *BlockingSwitchable) Write(p []byte, ent zapcore.Entry) (n int, err error) {
 	if a.enabled {
 		select {
-		case <-a.waiting:
 		case <-a.ctx.Done():
 			return 0, a.ctx.Err()
+		case <-a.waiting:
 		}
 	}
 	n, err = a.primary.Write(p, ent)

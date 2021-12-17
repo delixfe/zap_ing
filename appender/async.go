@@ -90,8 +90,11 @@ func (a *Async) forwardWrite() {
 }
 
 func (a *Async) monitorQueueWrite() {
+	ticker := time.NewTicker(a.monitorFrequency)
 	for {
-		time.Sleep(a.monitorFrequency)
+		select {
+		case <-ticker.C:
+		}
 		available := cap(a.queueWrite) - len(a.queueWrite)
 		free := a.fallbackThreshold - available
 		for i := 0; i < free; i++ {
