@@ -21,6 +21,16 @@ func NewEnveloping(inner Appender, envFn EnvelopingFn) *Enveloping {
 	}
 }
 
+func NewEnvelopingPreSuffix(inner Appender, prefix, suffix string) *Enveloping {
+	envFn := func(p []byte, ent *zapcore.Entry, output *buffer.Buffer) error {
+		output.WriteString(prefix)
+		output.Write(p)
+		output.WriteString(suffix)
+		return nil
+	}
+	return NewEnveloping(inner, envFn)
+}
+
 func (a *Enveloping) Write(p []byte, ent zapcore.Entry) (n int, err error) {
 	buf := bufferpool.Get()
 	err = a.envFn(p, &ent, buf)

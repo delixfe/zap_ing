@@ -16,9 +16,12 @@ import (
 // TODO: message structs could be used in general
 type writeMessage struct {
 	// TODO: create a custom []byte buffer instance so we do not need to keep the reference to the pool?
-	buf *buffer.Buffer
-	ent zapcore.Entry
+	buf   *buffer.Buffer
+	ent   zapcore.Entry
+	flush chan struct{}
 }
+
+var _ Appender = &Async{}
 
 // TODO: we will need a variant with a Fallback appender and one that drops (to use in the Fallback)
 type Async struct {
@@ -47,23 +50,37 @@ func (a *Async) start() {
 
 // the return value n does not work in an async context
 // TODO: we must copy p as we cannot retain it
-func (a *Async) Write(p []byte, ent zapcore.Entry, fields []zapcore.Field) (n int, err error) {
+func (a *Async) Write(p []byte, ent zapcore.Entry) (n int, err error) {
 	msg := writeMessage{
 		buf: bufferpool.Get(),
 		ent: ent,
 	}
 	// TODO: check if buf growths if necessary
-	copy(msg.buf.Bytes(), p)
+	n, err = msg.buf.Write(p)
+	if err != nil {
+		return
+	}
 
 	// this might block shortly until the monitoring routine drops messages
 	a.queueWrite <- msg
 	return
 }
 
+func (m *writeMessage) flushMarker() bool {
+	if m.flush == nil {
+		return false
+	}
+	close(m.flush)
+	return true
+}
+
 func (a *Async) forwardWrite() {
 	for {
 		select {
 		case msg := <-a.queueWrite:
+			if msg.flushMarker() {
+				continue
+			}
 			// TODO: handle error
 			_, _ = a.primary.Write(msg.buf.Bytes(), msg.ent)
 			msg.buf.Free()
@@ -79,6 +96,9 @@ func (a *Async) monitorQueueWrite() {
 		for i := 0; i < free; i++ {
 			select {
 			case msg := <-a.queueWrite:
+				if msg.flushMarker() {
+					continue
+				}
 				// TODO: drop or Fallback: add messageFullStrategy
 				a.fallback.Write(msg.buf.Bytes(), msg.ent)
 				msg.buf.Free()
@@ -96,6 +116,20 @@ func (a *Async) Sync() error {
 // Drain tries to gracefully drain the remaining buffered messages,
 // blocking until the buffer is empty or the provided context is cancelled.
 func (a *Async) Drain(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
 	// TODO: how to know that we have written all in the queue before Drain was called
 	// TODO: also we could use Fallback to drain. add to messageFullStrategy interface
+	done := make(chan struct{})
+	msg := writeMessage{
+		flush: done,
+	}
+	a.queueWrite <- msg
+	select {
+	case <-ctx.Done(): // we timed out
+	case <-done: // our marker message was handled
+	}
 }
