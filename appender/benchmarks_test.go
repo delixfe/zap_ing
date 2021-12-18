@@ -7,7 +7,6 @@ import (
 	"io"
 	"testing"
 	"zap_ing/appender"
-	"zap_ing/internal/bufferpool"
 )
 
 func BenchmarkFallbackEnveloping(b *testing.B) {
@@ -42,22 +41,15 @@ func BenchmarkFallbackEnveloping(b *testing.B) {
 		RunWithAppender(a, b)
 	})
 	b.Run("enveloping prefix", func(b *testing.B) {
-		envFn := func(p []byte, ent zapcore.Entry, output *buffer.Buffer) error {
-			output.WriteString("prefix: ")
-			_, _ = output.Write(p)
-			return nil
-		}
-		a := appender.NewEnveloping(writer, envFn)
+		a := appender.NewEnvelopingPreSuffix(writer, "prefix: ", "")
 		RunWithAppender(a, b)
 	})
-}
-
-func BenchmarkBufferPool(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		buf := bufferpool.Get()
-		buf.Free()
-	}
+	b.Run("chained", func(b *testing.B) {
+		var a appender.Appender = writer
+		a = appender.NewEnvelopingPreSuffix(a, "prefix: ", "")
+		a = appender.NewFallback(a, writer)
+		RunWithAppender(a, b)
+	})
 }
 
 func RunWithAppender(a appender.Appender, b *testing.B) {
