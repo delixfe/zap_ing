@@ -18,7 +18,11 @@ type BlockingSwitchable struct {
 	ctx     context.Context
 }
 
-func NewBlockingSwitchable(ctx context.Context, inner appendercore.Appender) *BlockingSwitchable {
+func NewBlockingSwitchable(inner appendercore.Appender) *BlockingSwitchable {
+	return NewBlockingSwitchableCtx(nil, inner)
+}
+
+func NewBlockingSwitchableCtx(ctx context.Context, inner appendercore.Appender) *BlockingSwitchable {
 	if ctx == nil {
 		ctx = context.Background()
 	}

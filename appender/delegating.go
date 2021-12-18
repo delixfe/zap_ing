@@ -38,6 +38,5 @@ func (a *Delegating) Sync() error {
 }
 
 func (a *Delegating) Synchronized() bool {
-	//TODO implement me
-	panic("implement me")
+	return a.SynchronizedValue
 }

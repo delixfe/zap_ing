@@ -2,9 +2,11 @@ package appender
 
 import (
 	"context"
+	"errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
+	"sync/atomic"
 	"time"
 	"zap_ing/appender/appendercore"
 	"zap_ing/internal/bufferpool"
@@ -17,6 +19,8 @@ type writeMessage struct {
 	ent   zapcore.Entry
 	flush chan struct{}
 }
+
+var ErrAppenderShutdown = errors.New("appender shut down")
 
 var _ appendercore.SynchronizationAwareAppender = &Async{}
 
@@ -34,9 +38,14 @@ type Async struct {
 
 	// state
 	queueWrite chan writeMessage
+	close      chan struct{}
+	shutdown   uint32 // incremented by Shutdown
 }
 
 func NewAsync(primary appendercore.Appender, options ...AsyncOption) (a *Async, err error) {
+	if primary == nil {
+		return nil, errors.New("primary is required")
+	}
 	a = &Async{
 		primary: primary,
 	}
@@ -55,6 +64,7 @@ func NewAsync(primary appendercore.Appender, options ...AsyncOption) (a *Async, 
 
 	a.queueWrite = make(chan writeMessage, a.maxQueueLength)
 	a.fallbackThreshold, err = a.calculateDropThresholdFn(a)
+	a.close = make(chan struct{})
 
 	a.start()
 
@@ -68,6 +78,11 @@ func (a *Async) start() {
 
 // the return value n does not work in an async context
 func (a *Async) Write(p []byte, ent zapcore.Entry) (n int, err error) {
+	if atomic.LoadUint32(&a.shutdown) != 0 {
+		err = ErrAppenderShutdown
+		return
+	}
+
 	msg := writeMessage{
 		buf: bufferpool.Get(),
 		ent: ent,
@@ -94,6 +109,8 @@ func (m *writeMessage) flushMarker() bool {
 func (a *Async) forwardWrite() {
 	for {
 		select {
+		case <-a.close:
+			return
 		case msg := <-a.queueWrite:
 			if msg.flushMarker() {
 				continue
@@ -110,6 +127,8 @@ func (a *Async) monitorQueueWrite() {
 	for {
 		select {
 		case <-ticker.C:
+		case <-a.close:
+			return
 		}
 		available := cap(a.queueWrite) - len(a.queueWrite)
 		free := a.fallbackThreshold - uint32(available)
@@ -160,4 +179,13 @@ func (a *Async) Drain(ctx context.Context) {
 
 func (a *Async) Synchronized() bool {
 	return true
+}
+
+func (a *Async) Shutdown(ctx context.Context) {
+	if atomic.SwapUint32(&a.shutdown, 1) != 0 {
+		return // already called
+	}
+	defer close(a.close) // stop the loops, after draining
+	// shutdown == 1, thus no new messages are accepted
+	a.Drain(ctx)
 }

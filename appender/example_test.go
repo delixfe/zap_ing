@@ -54,7 +54,7 @@ func ExampleAsync() {
 	writer := appender.NewWriter(zapcore.Lock(os.Stdout))
 
 	failing := chaos.NewFailingSwitchable(writer)
-	blocking := chaos.NewBlockingSwitchable(ctx, failing)
+	blocking := chaos.NewBlockingSwitchableCtx(ctx, failing)
 
 	// this could be a TcpWriter
 	var primaryOut appendercore.Appender = blocking

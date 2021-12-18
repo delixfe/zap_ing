@@ -19,9 +19,9 @@ func TestBlockingSwitchable_Break(t *testing.T) {
 	inner := appender.NewDelegating(func(p []byte, ent zapcore.Entry) (n int, err error) {
 		atomic.AddUint32(&written, 1)
 		return len(p), nil
-	}, nil)
+	}, nil, true)
 
-	blocking := NewBlockingSwitchable(ctx, inner)
+	blocking := NewBlockingSwitchableCtx(ctx, inner)
 	blocking.Write([]byte{}, zapcore.Entry{})
 	if written != 1 {
 		t.Fatal("expected 1 write")
@@ -34,7 +34,7 @@ func TestBlockingSwitchable_Break(t *testing.T) {
 	}()
 
 	time.Sleep(time.Millisecond * 100)
-	if written != 1 {
+	if atomic.LoadUint32(&written) != 1 {
 		t.Fatal("expected no further write while blocking")
 	}
 
@@ -42,7 +42,7 @@ func TestBlockingSwitchable_Break(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 100)
 
-	if written != 2 {
+	if atomic.LoadUint32(&written) != 2 {
 		t.Errorf("expected 2nd write after unblocking, written is %d", written)
 	}
 }
