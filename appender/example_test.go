@@ -62,7 +62,7 @@ func ExampleAsync() {
 	secondaryOut := appender.NewEnvelopingPreSuffix(writer, "FALLBACK: ", "")
 
 	fallback := appender.NewFallback(primaryOut, secondaryOut)
-	async := appender.NewAsync(fallback, secondaryOut)
+	async, _ := appender.NewAsync(fallback, appender.AsyncOnQueueNearlyFullForwardTo(secondaryOut))
 
 	core := appender.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), async, zapcore.DebugLevel)
 	logger := zap.New(core)
