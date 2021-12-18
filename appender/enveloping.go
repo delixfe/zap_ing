@@ -6,8 +6,13 @@ import (
 	"zap_ing/internal/bufferpool"
 )
 
-// TODO: entry by ref or pointer?
-type EnvelopingFn func(p []byte, ent *zapcore.Entry, output *buffer.Buffer) error
+// EnvelopingFn Function to create the enveloped output.
+// p contains the original content
+// the enveloped content must be written into output
+// entry by ref or pointer?
+// -> benchmarks show that using a pointer creates one alloc (for the pointer)
+//    but passing by value does not
+type EnvelopingFn func(p []byte, ent zapcore.Entry, output *buffer.Buffer) error
 
 type Enveloping struct {
 	primary Appender
@@ -22,7 +27,7 @@ func NewEnveloping(inner Appender, envFn EnvelopingFn) *Enveloping {
 }
 
 func NewEnvelopingPreSuffix(inner Appender, prefix, suffix string) *Enveloping {
-	envFn := func(p []byte, ent *zapcore.Entry, output *buffer.Buffer) error {
+	envFn := func(p []byte, ent zapcore.Entry, output *buffer.Buffer) error {
 		output.WriteString(prefix)
 		output.Write(p)
 		output.WriteString(suffix)
@@ -33,12 +38,12 @@ func NewEnvelopingPreSuffix(inner Appender, prefix, suffix string) *Enveloping {
 
 func (a *Enveloping) Write(p []byte, ent zapcore.Entry) (n int, err error) {
 	buf := bufferpool.Get()
-	err = a.envFn(p, &ent, buf)
+	defer buf.Free()
+	err = a.envFn(p, ent, buf)
 	if err != nil {
 		return
 	}
 	n, err = a.primary.Write(buf.Bytes(), ent)
-	buf.Free()
 	return
 }
 
