@@ -10,11 +10,6 @@ import (
 	"zap_ing/internal/bufferpool"
 )
 
-// TODO: check lazy marshalling from fields
-// A Field is a marshaling operation used to add a key-value pair to a logger's
-// context. Most fields are lazily marshaled, so it's inexpensive to add fields
-// to disabled debug-level log statements.
-
 // TODO: message structs could be used in general
 type writeMessage struct {
 	// TODO: create a custom []byte buffer instance so we do not need to keep the reference to the pool?
