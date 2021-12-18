@@ -2,9 +2,10 @@ package appender
 
 import (
 	"go.uber.org/zap/zapcore"
+	"zap_ing/appender/appendercore"
 )
 
-var _ Appender = &Writer{}
+var _ appendercore.SynchronizationAwareAppender = &Writer{}
 
 type Discard struct {
 }

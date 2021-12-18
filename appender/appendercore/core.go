@@ -1,7 +1,8 @@
-package appender
+package appendercore
 
 import (
 	"go.uber.org/zap/zapcore"
+	"sync"
 )
 
 var _ zapcore.Core = &AppenderCore{}
@@ -29,6 +30,57 @@ type Appender interface {
 	Sync() error
 }
 
+type SynchronizationAware interface {
+	Synchronized() bool
+}
+
+type SynchronizationAwareAppender interface {
+	Appender
+	SynchronizationAware
+}
+
+func Synchronized(s interface{}) bool {
+	if s, ok := s.(SynchronizationAware); ok && s.Synchronized() {
+		return true
+	}
+	return false
+}
+
+var _ SynchronizationAwareAppender = &Synchronizing{}
+
+type Synchronizing struct {
+	primary Appender
+	mutex   sync.Mutex
+}
+
+func NewSynchronizing(inner Appender) Appender {
+	if inner == nil {
+		return nil
+	}
+	if Synchronized(inner) {
+		// already synchronizing
+		return inner
+	}
+	return &Synchronizing{
+		primary: inner,
+	}
+}
+
+func (s *Synchronizing) Write(p []byte, ent zapcore.Entry) (n int, err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.primary.Write(p, ent)
+}
+
+func (s *Synchronizing) Sync() error {
+	//TODO: should we lock Sync?
+	return s.primary.Sync()
+}
+
+func (s *Synchronizing) Synchronized() bool {
+	return true
+}
+
 var _ zapcore.Core = &AppenderCore{}
 
 type AppenderCore struct {
@@ -38,10 +90,11 @@ type AppenderCore struct {
 }
 
 func NewAppenderCore(enc zapcore.Encoder, appender Appender, enab zapcore.LevelEnabler) *AppenderCore {
+
 	return &AppenderCore{
 		LevelEnabler: enab,
 		enc:          enc,
-		appender:     appender,
+		appender:     NewSynchronizing(appender),
 	}
 }
 

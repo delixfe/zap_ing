@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 	"zap_ing/appender"
+	"zap_ing/appender/appendercore"
 	"zap_ing/appender/chaos"
 )
 
@@ -27,14 +28,14 @@ func Example_core() {
 	failing := chaos.NewFailingSwitchable(writer)
 
 	// this could be a TcpWriter
-	var primaryOut appender.Appender = failing
+	var primaryOut appendercore.Appender = failing
 
 	// this would normally be os.Stdout or Stderr without further wrapping
 	secondaryOut := appender.NewEnvelopingPreSuffix(writer, "FALLBACK: ", "")
 
 	fallback := appender.NewFallback(primaryOut, secondaryOut)
 
-	core := appender.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), fallback, zapcore.DebugLevel)
+	core := appendercore.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), fallback, zapcore.DebugLevel)
 	logger := zap.New(core)
 
 	logger.Info("zappig")
@@ -56,7 +57,7 @@ func ExampleAsync() {
 	blocking := chaos.NewBlockingSwitchable(ctx, failing)
 
 	// this could be a TcpWriter
-	var primaryOut appender.Appender = blocking
+	var primaryOut appendercore.Appender = blocking
 
 	// this would normally be os.Stdout or Stderr without further wrapping
 	secondaryOut := appender.NewEnvelopingPreSuffix(writer, "FALLBACK: ", "")
@@ -64,7 +65,7 @@ func ExampleAsync() {
 	fallback := appender.NewFallback(primaryOut, secondaryOut)
 	async, _ := appender.NewAsync(fallback, appender.AsyncOnQueueNearlyFullForwardTo(secondaryOut))
 
-	core := appender.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), async, zapcore.DebugLevel)
+	core := appendercore.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), async, zapcore.DebugLevel)
 	logger := zap.New(core)
 
 	logger.Info("this logs async")

@@ -3,6 +3,7 @@ package appender
 import (
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
+	"zap_ing/appender/appendercore"
 	"zap_ing/internal/bufferpool"
 )
 
@@ -14,19 +15,25 @@ import (
 //    but passing by value does not
 type EnvelopingFn func(p []byte, ent zapcore.Entry, output *buffer.Buffer) error
 
+var _ appendercore.SynchronizationAwareAppender = &Enveloping{}
+
 type Enveloping struct {
-	primary Appender
+	primary appendercore.Appender
 	envFn   EnvelopingFn
 }
 
-func NewEnveloping(inner Appender, envFn EnvelopingFn) *Enveloping {
+func (a *Enveloping) Synchronized() bool {
+	return appendercore.Synchronized(a.primary)
+}
+
+func NewEnveloping(inner appendercore.Appender, envFn EnvelopingFn) *Enveloping {
 	return &Enveloping{
 		primary: inner,
 		envFn:   envFn,
 	}
 }
 
-func NewEnvelopingPreSuffix(inner Appender, prefix, suffix string) *Enveloping {
+func NewEnvelopingPreSuffix(inner appendercore.Appender, prefix, suffix string) *Enveloping {
 	envFn := func(p []byte, ent zapcore.Entry, output *buffer.Buffer) error {
 		output.WriteString(prefix)
 		output.Write(p)

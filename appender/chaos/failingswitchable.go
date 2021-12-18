@@ -3,22 +3,22 @@ package chaos
 import (
 	"errors"
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender"
+	"zap_ing/appender/appendercore"
 )
 
 var ErrFailEnabled = errors.New("failing switchable appender is failing")
 
 var (
-	_ appender.Appender = &FailingSwitchable{}
-	_ Switchable        = &FailingSwitchable{}
+	_ appendercore.Appender = &FailingSwitchable{}
+	_ Switchable            = &FailingSwitchable{}
 )
 
 type FailingSwitchable struct {
-	primary appender.Appender
+	primary appendercore.Appender
 	enabled bool
 }
 
-func NewFailingSwitchable(inner appender.Appender) *FailingSwitchable {
+func NewFailingSwitchable(inner appendercore.Appender) *FailingSwitchable {
 	return &FailingSwitchable{
 		primary: inner,
 		enabled: false,

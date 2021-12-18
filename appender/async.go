@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
 	"time"
+	"zap_ing/appender/appendercore"
 	"zap_ing/internal/bufferpool"
 )
 
@@ -17,7 +18,7 @@ type writeMessage struct {
 	flush chan struct{}
 }
 
-var _ Appender = &Async{}
+var _ appendercore.SynchronizationAwareAppender = &Async{}
 
 type Async struct {
 	// only during construction
@@ -25,8 +26,8 @@ type Async struct {
 	calculateDropThresholdFn func(*Async) (uint32, error)
 
 	// readonly
-	primary           Appender
-	fallback          Appender
+	primary           appendercore.Appender
+	fallback          appendercore.Appender
 	monitorPeriod     time.Duration
 	fallbackThreshold uint32
 	syncTimeout       time.Duration
@@ -35,7 +36,7 @@ type Async struct {
 	queueWrite chan writeMessage
 }
 
-func NewAsync(primary Appender, options ...AsyncOption) (a *Async, err error) {
+func NewAsync(primary appendercore.Appender, options ...AsyncOption) (a *Async, err error) {
 	a = &Async{
 		primary: primary,
 	}
@@ -155,4 +156,8 @@ func (a *Async) Drain(ctx context.Context) {
 	case <-ctx.Done(): // we timed out
 	case <-done: // our marker message was handled
 	}
+}
+
+func (a *Async) Synchronized() bool {
+	return true
 }

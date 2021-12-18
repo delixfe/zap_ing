@@ -3,22 +3,22 @@ package chaos
 import (
 	"context"
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender"
+	"zap_ing/appender/appendercore"
 )
 
 var (
-	_ appender.Appender = &BlockingSwitchable{}
-	_ Switchable        = &BlockingSwitchable{}
+	_ appendercore.Appender = &BlockingSwitchable{}
+	_ Switchable            = &BlockingSwitchable{}
 )
 
 type BlockingSwitchable struct {
-	primary appender.Appender
+	primary appendercore.Appender
 	enabled bool
 	waiting chan struct{}
 	ctx     context.Context
 }
 
-func NewBlockingSwitchable(ctx context.Context, inner appender.Appender) *BlockingSwitchable {
+func NewBlockingSwitchable(ctx context.Context, inner appendercore.Appender) *BlockingSwitchable {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -60,5 +60,5 @@ func (a *BlockingSwitchable) Write(p []byte, ent zapcore.Entry) (n int, err erro
 }
 
 func (a *BlockingSwitchable) Sync() error {
-	return a.Sync()
+	return a.primary.Sync()
 }

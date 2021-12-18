@@ -7,6 +7,7 @@ import (
 	"io"
 	"testing"
 	"zap_ing/appender"
+	"zap_ing/appender/appendercore"
 )
 
 func BenchmarkFallbackEnveloping(b *testing.B) {
@@ -45,15 +46,15 @@ func BenchmarkFallbackEnveloping(b *testing.B) {
 		RunWithAppender(a, b)
 	})
 	b.Run("chained", func(b *testing.B) {
-		var a appender.Appender = writer
+		var a appendercore.Appender = writer
 		a = appender.NewEnvelopingPreSuffix(a, "prefix: ", "")
 		a = appender.NewFallback(a, writer)
 		RunWithAppender(a, b)
 	})
 }
 
-func RunWithAppender(a appender.Appender, b *testing.B) {
-	core := appender.NewAppenderCore(zapcore.NewJSONEncoder(encoderConfig), a, zapcore.DebugLevel)
+func RunWithAppender(a appendercore.Appender, b *testing.B) {
+	core := appendercore.NewAppenderCore(zapcore.NewJSONEncoder(encoderConfig), a, zapcore.DebugLevel)
 	RunWithCore(core, b)
 }
 

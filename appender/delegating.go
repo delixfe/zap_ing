@@ -1,18 +1,23 @@
 package appender
 
-import "go.uber.org/zap/zapcore"
+import (
+	"go.uber.org/zap/zapcore"
+	"zap_ing/appender/appendercore"
+)
 
-var _ Appender = &Writer{}
+var _ appendercore.SynchronizationAwareAppender = &Delegating{}
 
 type Delegating struct {
-	WriteFn func(p []byte, ent zapcore.Entry) (n int, err error)
-	SyncFn  func() error
+	WriteFn           func(p []byte, ent zapcore.Entry) (n int, err error)
+	SyncFn            func() error
+	SynchronizedValue bool
 }
 
-func NewDelegating(writeFn func(p []byte, ent zapcore.Entry) (n int, err error), syncFn func() error) *Delegating {
+func NewDelegating(writeFn func(p []byte, ent zapcore.Entry) (n int, err error), syncFn func() error, synchronized bool) *Delegating {
 	return &Delegating{
-		WriteFn: writeFn,
-		SyncFn:  syncFn,
+		WriteFn:           writeFn,
+		SyncFn:            syncFn,
+		SynchronizedValue: synchronized,
 	}
 }
 
@@ -30,4 +35,9 @@ func (a *Delegating) Sync() error {
 		return nil
 	}
 	return syncFn()
+}
+
+func (a *Delegating) Synchronized() bool {
+	//TODO implement me
+	panic("implement me")
 }
