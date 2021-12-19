@@ -1,4 +1,4 @@
-package zap_ing
+package zapcore_extensions
 
 import (
 	"go.uber.org/multierr"
