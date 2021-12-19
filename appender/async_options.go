@@ -16,8 +16,11 @@ func (f asyncOptionsFunc) apply(a *Async) error {
 	return f(a)
 }
 
-func AsyncMaxQueueLength(length uint32) AsyncOption {
+func AsyncMaxQueueLength(length int) AsyncOption {
 	return asyncOptionsFunc(func(a *Async) error {
+		if length < 0 {
+			return errors.New("length must be greater than 0")
+		}
 		a.maxQueueLength = length
 		return nil
 	})
@@ -47,17 +50,20 @@ func AsyncQueueMinFreePercent(minFreePercent float32) AsyncOption {
 		if minFreePercent < 0 || minFreePercent >= 1 {
 			return errors.New("minFreePercent must be between 0 and 1")
 		}
-		async.calculateDropThresholdFn = func(a *Async) (uint32, error) {
+		async.calculateDropThresholdFn = func(a *Async) (int, error) {
 			threshold := float32(async.maxQueueLength) * minFreePercent
-			return uint32(threshold), nil
+			return int(threshold), nil
 		}
 		return nil
 	})
 }
 
-func AsyncQueueMinFreeItems(minFree uint32) AsyncOption {
+func AsyncQueueMinFreeItems(minFree int) AsyncOption {
 	return asyncOptionsFunc(func(async *Async) error {
-		async.calculateDropThresholdFn = func(a *Async) (uint32, error) {
+		async.calculateDropThresholdFn = func(a *Async) (int, error) {
+			if minFree < 0 {
+				return 0, errors.New("minFree must be gt 0")
+			}
 			if a.maxQueueLength < minFree {
 				return 0, errors.New("minFree must less than the max queue size")
 			}

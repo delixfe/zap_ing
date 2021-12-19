@@ -26,20 +26,20 @@ var _ appendercore.SynchronizationAwareAppender = &Async{}
 
 type Async struct {
 	// only during construction
-	maxQueueLength           uint32
-	calculateDropThresholdFn func(*Async) (uint32, error)
+	maxQueueLength           int
+	calculateDropThresholdFn func(*Async) (int, error)
 
 	// readonly
 	primary           appendercore.Appender
 	fallback          appendercore.Appender
 	monitorPeriod     time.Duration
-	fallbackThreshold uint32
+	fallbackThreshold int
 	syncTimeout       time.Duration
 
 	// state
 	queueWrite chan writeMessage
 	close      chan struct{}
-	shutdown   uint32 // incremented by Shutdown
+	shutdown   int32 // incremented by Shutdown
 }
 
 func NewAsync(primary appendercore.Appender, options ...AsyncOption) (a *Async, err error) {
@@ -78,7 +78,7 @@ func (a *Async) start() {
 
 // the return value n does not work in an async context
 func (a *Async) Write(p []byte, ent zapcore.Entry) (n int, err error) {
-	if atomic.LoadUint32(&a.shutdown) != 0 {
+	if atomic.LoadInt32(&a.shutdown) != 0 {
 		err = ErrAppenderShutdown
 		return
 	}
@@ -131,8 +131,8 @@ func (a *Async) monitorQueueWrite() {
 			return
 		}
 		available := cap(a.queueWrite) - len(a.queueWrite)
-		free := a.fallbackThreshold - uint32(available)
-		for i := uint32(0); i < free; i++ {
+		toFree := a.fallbackThreshold - available
+		for i := 0; i < toFree; i++ {
 			select {
 			case msg := <-a.queueWrite:
 				if msg.flushMarker() {
@@ -182,7 +182,7 @@ func (a *Async) Synchronized() bool {
 }
 
 func (a *Async) Shutdown(ctx context.Context) {
-	if atomic.SwapUint32(&a.shutdown, 1) != 0 {
+	if atomic.SwapInt32(&a.shutdown, 1) != 0 {
 		return // already called
 	}
 	defer close(a.close) // stop the loops, after draining

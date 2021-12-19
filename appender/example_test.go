@@ -57,28 +57,35 @@ func ExampleAsync() {
 	blocking := chaos.NewBlockingSwitchableCtx(ctx, failing)
 
 	// this could be a TcpWriter
-	var primaryOut appendercore.Appender = blocking
+	var primaryOut appendercore.Appender = appender.NewEnvelopingPreSuffix(blocking, "PRIMARY:  ", "")
 
 	// this would normally be os.Stdout or Stderr without further wrapping
 	secondaryOut := appender.NewEnvelopingPreSuffix(writer, "FALLBACK: ", "")
 
 	fallback := appender.NewFallback(primaryOut, secondaryOut)
-	async, _ := appender.NewAsync(fallback, appender.AsyncOnQueueNearlyFullForwardTo(secondaryOut))
+	async, _ := appender.NewAsync(fallback,
+		appender.AsyncOnQueueNearlyFullForwardTo(appender.NewEnvelopingPreSuffix(writer, "QFALLBACK: ", "")),
+		appender.AsyncMaxQueueLength(10),
+		appender.AsyncQueueMinFreePercent(0.2),
+		appender.AsyncQueueMonitorPeriod(time.Millisecond),
+	)
 
 	core := appendercore.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), async, zapcore.DebugLevel)
 	logger := zap.New(core)
 
 	logger.Info("this logs async")
 
+	time.Sleep(time.Millisecond * 10)
+
 	blocking.Break()
 
-	for i := 0; i < 1001; i++ {
-		logger.Info("while blocked", zap.Int("i", i))
+	logger.Info("primary blocks while trying to send this", zap.Int("i", 1))
+	for i := 2; i <= 15; i++ {
+		logger.Info("while broken", zap.Int("i", i))
 	}
 
-	time.Sleep(time.Second)
 	blocking.Fix()
-
+	time.Sleep(time.Millisecond * 10)
 	async.Drain(ctx)
 
 	// Output:

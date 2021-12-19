@@ -73,7 +73,7 @@ type expectCounters struct {
 
 func (e expectCounters) String() string {
 	return fmt.Sprintf(
-		"expectedCounters: \n\tprimary:  %d\n\tfallback: %d\n\tblocked:  %d\n\terrors:   %d",
+		"expectedCounters: \n\tprimary:  %d\n\tfallback: %d\n\tbroken:  %d\n\terrors:   %d",
 		e.primary, e.fallback, e.blocked, e.errors)
 }
 
@@ -86,7 +86,7 @@ type actualAccessors struct {
 
 func (e actualAccessors) String() string {
 	return fmt.Sprintf(
-		"expectedCounters: \n\tprimary:  %d\n\tfallback: %d\n\tblocked:  %d\n\terrors:   %d",
+		"expectedCounters: \n\tprimary:  %d\n\tfallback: %d\n\tbroken:  %d\n\terrors:   %d",
 		e.primary(), e.fallback(), e.blocked(), e.errors())
 }
 
@@ -94,19 +94,19 @@ func AssertCounters(t *testing.T, expect expectCounters, accessors actualAccesso
 	t.Helper()
 	AssertWrittenEquals(t, expect.primary, accessors.primary, msg+" primary")
 	AssertWrittenEquals(t, expect.fallback, accessors.fallback, msg+" fallback")
-	AssertWrittenEquals(t, expect.blocked, accessors.blocked, msg+" blocked")
+	AssertWrittenEquals(t, expect.blocked, accessors.blocked, msg+" broken")
 	AssertWrittenEquals(t, expect.errors, accessors.errors, msg+" errors")
 }
 
 func TestAsync(t *testing.T) {
 
 	type args struct {
-		queueLength uint32
-		threshold   uint32
-		write       uint64
+		queueLength int
+		threshold   int
+		write       int
 		options     []AsyncOption
-		blocked     expectCounters
-		unblocked   expectCounters
+		broken      expectCounters
+		fixed       expectCounters
 	}
 	tests := []struct {
 		name string
@@ -116,23 +116,30 @@ func TestAsync(t *testing.T) {
 			queueLength: 1,
 			threshold:   1,
 			write:       2,
-			blocked:     expectCounters{primary: 0, fallback: 1}, // one is consumed by blocking, 99 in queue
-			unblocked:   expectCounters{primary: 1, fallback: 1},
+			broken:      expectCounters{primary: 0, fallback: 1}, // one is consumed by blocking
+			fixed:       expectCounters{primary: 1, fallback: 1},
+		}},
+		{name: "example", args: args{
+			queueLength: 10,
+			threshold:   2,
+			write:       10,
+			broken:      expectCounters{primary: 0, fallback: 1}, // one is consumed by blocking
+			fixed:       expectCounters{primary: 9, fallback: 1},
 		}},
 		{name: "writes equal length", args: args{
 			queueLength: 100,
 			threshold:   10,
 			write:       100,
-			blocked:     expectCounters{primary: 0, fallback: 9}, // one is consumed by blocking, 99 in queue
-			unblocked:   expectCounters{primary: 91, fallback: 9},
+			broken:      expectCounters{primary: 0, fallback: 9}, // one is consumed by blocking
+			fixed:       expectCounters{primary: 91, fallback: 9},
 		}},
 		{name: "no monitor, more writes than length -> block", args: args{
 			queueLength: 1,
 			threshold:   0,
 			write:       10,
 			options:     []AsyncOption{AsyncQueueMonitorPeriod(time.Hour)},
-			blocked:     expectCounters{primary: 0, fallback: 0, blocked: 1}, // one is consumed by blocking, 1 in queue
-			unblocked:   expectCounters{primary: 10, fallback: 0},
+			broken:      expectCounters{primary: 0, fallback: 0, blocked: 1}, // one is consumed by blocking, 1 in queue
+			fixed:       expectCounters{primary: 10, fallback: 0},
 		}},
 	}
 	for _, tt := range tests {
@@ -162,7 +169,7 @@ func TestAsync(t *testing.T) {
 				errors:   func() uint64 { return atomic.LoadUint64(&errors) },
 			}
 			go func() {
-				for i := uint64(0); i < tt.args.write; i++ {
+				for i := 0; i < tt.args.write; i++ {
 					atomic.AddUint64(&blocked, 1)
 					if Write(async) != nil {
 						atomic.AddUint64(&errors, 1)
@@ -172,16 +179,33 @@ func TestAsync(t *testing.T) {
 			}()
 
 			time.Sleep(time.Millisecond * 10) // give monitor time to catch up
-			AssertCounters(t, tt.args.blocked, actual, "blocked")
+			AssertCounters(t, tt.args.broken, actual, "broken")
 
 			blocking.Fix()
 			time.Sleep(time.Millisecond * 10) // give monitor time to catch up
 			async.Drain(context.Background())
-			t.Log("actual ", actual)
-			AssertCounters(t, tt.args.unblocked, actual, "unblocked")
+			AssertCounters(t, tt.args.fixed, actual, "fixed")
 
 		})
 	}
+}
+
+func TestAsync_Write_afterShutdown_returnsErr(t *testing.T) {
+	primary, primaryCounter := NewWriteCountingAppender()
+	fallback, fallbackCounter := NewWriteCountingAppender()
+
+	async, _ := NewAsync(primary,
+		AsyncOnQueueNearlyFullForwardTo(fallback),
+	)
+	async.Shutdown(context.Background())
+
+	err := Write(async)
+
+	if err == nil {
+		t.Error("expected an error")
+	}
+	AssertWrittenEquals(t, 0, primaryCounter, "primary")
+	AssertWrittenEquals(t, 0, fallbackCounter, "fallback")
 }
 
 type assertFn func(*Async) bool
@@ -200,10 +224,14 @@ func TestNewAsync(t *testing.T) {
 			options:    []AsyncOption{AsyncOnQueueNearlyFullForwardTo(NewWriter(zapcore.AddSync(io.Discard)))},
 			assertions: []assertFn{func(a *Async) bool { return appendercore.Synchronized(a) }},
 		},
+		{name: "max queue length negative", wantErr: true, options: []AsyncOption{AsyncMaxQueueLength(-1)}},
 		{name: "queue monitor period negative", wantErr: true, options: []AsyncOption{AsyncQueueMonitorPeriod(-1 * time.Second)}},
 		{name: "queue monitor period zero", wantErr: true, options: []AsyncOption{AsyncQueueMonitorPeriod(0)}},
 		{name: "async sync timeout negative", wantErr: true, options: []AsyncOption{AsyncSyncTimeout(-1 * time.Second)}},
 		{name: "sync sync timeout zero", wantErr: true, options: []AsyncOption{AsyncSyncTimeout(0)}},
+		{name: "min free items lt zero", wantErr: true, options: []AsyncOption{
+			AsyncQueueMinFreeItems(-1),
+		}},
 		{name: "min free items greater queue length", wantErr: true, options: []AsyncOption{
 			AsyncQueueMinFreeItems(100),
 			AsyncMaxQueueLength(10),
@@ -219,6 +247,13 @@ func TestNewAsync(t *testing.T) {
 				AsyncMaxQueueLength(100),
 			},
 			assertions: []assertFn{func(a *Async) bool { return a.fallbackThreshold == 10 }},
+		},
+		{name: "min free percent calculation 20",
+			options: []AsyncOption{
+				AsyncQueueMinFreePercent(0.2),
+				AsyncMaxQueueLength(10),
+			},
+			assertions: []assertFn{func(a *Async) bool { return a.fallbackThreshold == 2 }},
 		},
 	}
 	for _, tt := range tests {
@@ -238,7 +273,7 @@ func TestNewAsync(t *testing.T) {
 	}
 }
 
-func TestNewAsync_nilPrimary(t *testing.T) {
+func TestNewAsync_nilPrimary_returnsErr(t *testing.T) {
 	async, err := NewAsync(nil)
 	if err == nil {
 		t.Error("expected an error")
