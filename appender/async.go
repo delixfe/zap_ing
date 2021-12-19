@@ -160,6 +160,10 @@ func (a *Async) Sync() error {
 // Drain tries to gracefully drain the remaining buffered messages,
 // blocking until the buffer is empty or the provided context is cancelled.
 func (a *Async) Drain(ctx context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	select {
 	case <-ctx.Done():
 		return
@@ -185,7 +189,8 @@ func (a *Async) Shutdown(ctx context.Context) {
 	if atomic.SwapInt32(&a.shutdown, 1) != 0 {
 		return // already called
 	}
-	defer close(a.close) // stop the loops, after draining
-	// shutdown == 1, thus no new messages are accepted
+
 	a.Drain(ctx)
+	close(a.close) // stop the loops, after draining
+	close(a.queueWrite)
 }
