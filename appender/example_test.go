@@ -89,6 +89,20 @@ func ExampleAsync() {
 	async.Drain(ctx)
 
 	// Output:
-	// info ** zappig
-	// FALLBACK: info ** on the fallback
+	// PRIMARY:  info ** this logs async
+	// QFALLBACK: info ** while broken ** {"i": 2}
+	// QFALLBACK: info ** while broken ** {"i": 3}
+	// QFALLBACK: info ** while broken ** {"i": 4}
+	// QFALLBACK: info ** while broken ** {"i": 5}
+	// PRIMARY:  info ** primary blocks while trying to send this ** {"i": 1}
+	// PRIMARY:  info ** while broken ** {"i": 6}
+	// PRIMARY:  info ** while broken ** {"i": 7}
+	// PRIMARY:  info ** while broken ** {"i": 8}
+	// PRIMARY:  info ** while broken ** {"i": 9}
+	// PRIMARY:  info ** while broken ** {"i": 10}
+	// PRIMARY:  info ** while broken ** {"i": 11}
+	// PRIMARY:  info ** while broken ** {"i": 12}
+	// PRIMARY:  info ** while broken ** {"i": 13}
+	// PRIMARY:  info ** while broken ** {"i": 14}
+	// PRIMARY:  info ** while broken ** {"i": 15}
 }
