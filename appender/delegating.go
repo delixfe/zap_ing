@@ -2,10 +2,9 @@ package appender
 
 import (
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender/appendercore"
 )
 
-var _ appendercore.SynchronizationAwareAppender = &Delegating{}
+var _ SynchronizationAwareAppender = &Delegating{}
 
 type Delegating struct {
 	WriteFn           func(p []byte, ent zapcore.Entry) (n int, err error)

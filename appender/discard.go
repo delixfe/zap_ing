@@ -2,10 +2,9 @@ package appender
 
 import (
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender/appendercore"
 )
 
-var _ appendercore.SynchronizationAwareAppender = &Writer{}
+var _ SynchronizationAwareAppender = &Discard{}
 
 type Discard struct {
 }
@@ -20,4 +19,8 @@ func (a *Discard) Write(p []byte, _ zapcore.Entry) (int, error) {
 
 func (a *Discard) Sync() error {
 	return nil
+}
+
+func (a *Discard) Synchronized() bool {
+	return true
 }

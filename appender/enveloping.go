@@ -1,10 +1,9 @@
 package appender
 
 import (
+	"github.com/delixfe/zap_ing/appender/internal/bufferpool"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender/appendercore"
-	"zap_ing/internal/bufferpool"
 )
 
 // EnvelopingFn Function to create the enveloped output.
@@ -15,25 +14,25 @@ import (
 //    but passing by value does not
 type EnvelopingFn func(p []byte, ent zapcore.Entry, output *buffer.Buffer) error
 
-var _ appendercore.SynchronizationAwareAppender = &Enveloping{}
+var _ SynchronizationAwareAppender = &Enveloping{}
 
 type Enveloping struct {
-	primary appendercore.Appender
+	primary Appender
 	envFn   EnvelopingFn
 }
 
 func (a *Enveloping) Synchronized() bool {
-	return appendercore.Synchronized(a.primary)
+	return Synchronized(a.primary)
 }
 
-func NewEnveloping(inner appendercore.Appender, envFn EnvelopingFn) *Enveloping {
+func NewEnveloping(inner Appender, envFn EnvelopingFn) *Enveloping {
 	return &Enveloping{
 		primary: inner,
 		envFn:   envFn,
 	}
 }
 
-func NewEnvelopingPreSuffix(inner appendercore.Appender, prefix, suffix string) *Enveloping {
+func NewEnvelopingPreSuffix(inner Appender, prefix, suffix string) *Enveloping {
 	envFn := func(p []byte, ent zapcore.Entry, output *buffer.Buffer) error {
 		output.WriteString(prefix)
 		output.Write(p)
@@ -55,5 +54,5 @@ func (a *Enveloping) Write(p []byte, ent zapcore.Entry) (n int, err error) {
 }
 
 func (a *Enveloping) Sync() error {
-	return a.Sync()
+	return a.primary.Sync()
 }

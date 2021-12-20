@@ -1,4 +1,4 @@
-package appendercore
+package appender
 
 import (
 	"go.uber.org/zap/zapcore"

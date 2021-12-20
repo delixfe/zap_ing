@@ -1,25 +1,28 @@
-package appender
+package appender_test
 
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap/zapcore"
-	"io"
 	"sync/atomic"
 	"testing"
 	"time"
-	"zap_ing/appender/appendercore"
-	"zap_ing/appender/chaos"
+
+	"github.com/delixfe/zap_ing/appender"
+	"github.com/delixfe/zap_ing/appender/chaos"
+
+	"go.uber.org/zap/zapcore"
 )
 
-func NewTestFailOnWriteAppender(t *testing.T) appendercore.Appender {
-	return NewDelegating(func(_ []byte, _ zapcore.Entry) (n int, err error) {
+type AsyncOptions []appender.AsyncOption
+
+func NewTestFailOnWriteAppender(t *testing.T) appender.Appender {
+	return appender.NewDelegating(func(_ []byte, _ zapcore.Entry) (n int, err error) {
 		t.Fatal("write called on TestFailOnWriteAppender")
 		return 0, nil
 	}, nil, true)
 }
 
-func NewWriteCountingAppender() (appendercore.Appender, func() uint64) {
+func NewWriteCountingAppender() (appender.Appender, func() uint64) {
 	counter := uint64(0)
 	writeFn := func(p []byte, _ zapcore.Entry) (n int, err error) {
 		atomic.AddUint64(&counter, uint64(1))
@@ -28,10 +31,10 @@ func NewWriteCountingAppender() (appendercore.Appender, func() uint64) {
 	loadCounterFn := func() uint64 {
 		return atomic.LoadUint64(&counter)
 	}
-	return NewDelegating(writeFn, nil, true), loadCounterFn
+	return appender.NewDelegating(writeFn, nil, true), loadCounterFn
 }
 
-func Write(a appendercore.Appender) error {
+func Write(a appender.Appender) error {
 	_, err := a.Write([]byte{}, zapcore.Entry{})
 	return err
 }
@@ -49,7 +52,7 @@ func TestAsync_smoke(t *testing.T) {
 	counting, written := NewWriteCountingAppender()
 	blocking := chaos.NewBlockingSwitchableCtx(ctx, counting)
 
-	async, _ := NewAsync(blocking, AsyncOnQueueNearlyFullForwardTo(NewTestFailOnWriteAppender(t)))
+	async, _ := appender.NewAsync(blocking, appender.AsyncOnQueueNearlyFullForwardTo(NewTestFailOnWriteAppender(t)))
 	Write(async)
 	async.Sync()
 	AssertWrittenEquals(t, 1, written, "after sync")
@@ -104,7 +107,7 @@ func TestAsync(t *testing.T) {
 		queueLength int
 		threshold   int
 		write       int
-		options     []AsyncOption
+		options     []appender.AsyncOption
 		broken      expectCounters
 		fixed       expectCounters
 	}
@@ -137,7 +140,7 @@ func TestAsync(t *testing.T) {
 			queueLength: 1,
 			threshold:   0,
 			write:       10,
-			options:     []AsyncOption{AsyncQueueMonitorPeriod(time.Hour)},
+			options:     AsyncOptions{appender.AsyncQueueMonitorPeriod(time.Hour)},
 			broken:      expectCounters{primary: 0, fallback: 0, blocked: 1}, // one is consumed by blocking, 1 in queue
 			fixed:       expectCounters{primary: 10, fallback: 0},
 		}},
@@ -150,13 +153,13 @@ func TestAsync(t *testing.T) {
 			blocking.Break()
 
 			fallback, fallbackCounter := NewWriteCountingAppender()
-			options := []AsyncOption{
-				AsyncOnQueueNearlyFullForwardTo(fallback),
-				AsyncMaxQueueLength(tt.args.queueLength),
-				AsyncQueueMinFreeItems(tt.args.threshold),
-				AsyncQueueMonitorPeriod(time.Millisecond),
+			options := AsyncOptions{
+				appender.AsyncOnQueueNearlyFullForwardTo(fallback),
+				appender.AsyncMaxQueueLength(tt.args.queueLength),
+				appender.AsyncQueueMinFreeItems(tt.args.threshold),
+				appender.AsyncQueueMonitorPeriod(time.Millisecond),
 			}
-			async, _ := NewAsync(blocking,
+			async, _ := appender.NewAsync(blocking,
 				append(options, tt.args.options...)...,
 			)
 			defer async.Shutdown(context.Background())
@@ -194,8 +197,8 @@ func TestAsync_Write_afterShutdown_returnsErr(t *testing.T) {
 	primary, primaryCounter := NewWriteCountingAppender()
 	fallback, fallbackCounter := NewWriteCountingAppender()
 
-	async, _ := NewAsync(primary,
-		AsyncOnQueueNearlyFullForwardTo(fallback),
+	async, _ := appender.NewAsync(primary,
+		appender.AsyncOnQueueNearlyFullForwardTo(fallback),
 	)
 	async.Shutdown(context.Background())
 
@@ -206,79 +209,4 @@ func TestAsync_Write_afterShutdown_returnsErr(t *testing.T) {
 	}
 	AssertWrittenEquals(t, 0, primaryCounter, "primary")
 	AssertWrittenEquals(t, 0, fallbackCounter, "fallback")
-}
-
-type assertFn func(*Async) bool
-
-func TestNewAsync(t *testing.T) {
-
-	tests := []struct {
-		name       string
-		options    []AsyncOption
-		wantErr    bool
-		assertions []assertFn
-	}{
-		{name: "forwardTo nil fallback", wantErr: true,
-			options: []AsyncOption{AsyncOnQueueNearlyFullForwardTo(nil)}},
-		{name: "forwardTo fallback is synchronized",
-			options:    []AsyncOption{AsyncOnQueueNearlyFullForwardTo(NewWriter(zapcore.AddSync(io.Discard)))},
-			assertions: []assertFn{func(a *Async) bool { return appendercore.Synchronized(a) }},
-		},
-		{name: "max queue length negative", wantErr: true, options: []AsyncOption{AsyncMaxQueueLength(-1)}},
-		{name: "queue monitor period negative", wantErr: true, options: []AsyncOption{AsyncQueueMonitorPeriod(-1 * time.Second)}},
-		{name: "queue monitor period zero", wantErr: true, options: []AsyncOption{AsyncQueueMonitorPeriod(0)}},
-		{name: "async sync timeout negative", wantErr: true, options: []AsyncOption{AsyncSyncTimeout(-1 * time.Second)}},
-		{name: "sync sync timeout zero", wantErr: true, options: []AsyncOption{AsyncSyncTimeout(0)}},
-		{name: "min free items lt zero", wantErr: true, options: []AsyncOption{
-			AsyncQueueMinFreeItems(-1),
-		}},
-		{name: "min free items greater queue length", wantErr: true, options: []AsyncOption{
-			AsyncQueueMinFreeItems(100),
-			AsyncMaxQueueLength(10),
-		}},
-		{name: "min free percent lt 0", wantErr: true, options: []AsyncOption{
-			AsyncQueueMinFreePercent(-1)}},
-		{name: "min free percent gt 1", wantErr: true, options: []AsyncOption{
-			AsyncQueueMinFreePercent(-1)}},
-
-		{name: "min free percent calculation 10",
-			options: []AsyncOption{
-				AsyncQueueMinFreePercent(0.1),
-				AsyncMaxQueueLength(100),
-			},
-			assertions: []assertFn{func(a *Async) bool { return a.fallbackThreshold == 10 }},
-		},
-		{name: "min free percent calculation 20",
-			options: []AsyncOption{
-				AsyncQueueMinFreePercent(0.2),
-				AsyncMaxQueueLength(10),
-			},
-			assertions: []assertFn{func(a *Async) bool { return a.fallbackThreshold == 2 }},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			primary := NewDiscard()
-			gotA, err := NewAsync(primary, tt.options...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewAsync() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			for _, assertion := range tt.assertions {
-				if !assertion(gotA) {
-					t.Error("assertion failed")
-				}
-			}
-		})
-	}
-}
-
-func TestNewAsync_nilPrimary_returnsErr(t *testing.T) {
-	async, err := NewAsync(nil)
-	if err == nil {
-		t.Error("expected an error")
-	}
-	if async != nil {
-		t.Errorf("did not expcect an appender")
-	}
 }

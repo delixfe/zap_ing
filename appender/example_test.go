@@ -2,13 +2,13 @@ package appender_test
 
 import (
 	"context"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"time"
-	"zap_ing/appender"
-	"zap_ing/appender/appendercore"
-	"zap_ing/appender/chaos"
+
+	"github.com/delixfe/zap_ing/appender"
+	"github.com/delixfe/zap_ing/appender/chaos"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var encoderConfig = zapcore.EncoderConfig{
@@ -28,14 +28,14 @@ func Example_core() {
 	failing := chaos.NewFailingSwitchable(writer)
 
 	// this could be a TcpWriter
-	var primaryOut appendercore.Appender = failing
+	var primaryOut appender.Appender = failing
 
 	// this would normally be os.Stdout or Stderr without further wrapping
 	secondaryOut := appender.NewEnvelopingPreSuffix(writer, "FALLBACK: ", "")
 
 	fallback := appender.NewFallback(primaryOut, secondaryOut)
 
-	core := appendercore.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), fallback, zapcore.DebugLevel)
+	core := appender.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), fallback, zapcore.DebugLevel)
 	logger := zap.New(core)
 
 	logger.Info("zappig")
@@ -57,7 +57,7 @@ func ExampleAsync() {
 	blocking := chaos.NewBlockingSwitchableCtx(ctx, failing)
 
 	// this could be a TcpWriter
-	var primaryOut appendercore.Appender = appender.NewEnvelopingPreSuffix(blocking, "PRIMARY:  ", "")
+	var primaryOut appender.Appender = appender.NewEnvelopingPreSuffix(blocking, "PRIMARY:  ", "")
 
 	// this would normally be os.Stdout or Stderr without further wrapping
 	secondaryOut := appender.NewEnvelopingPreSuffix(writer, "FALLBACK: ", "")
@@ -70,7 +70,7 @@ func ExampleAsync() {
 		appender.AsyncQueueMonitorPeriod(time.Millisecond),
 	)
 
-	core := appendercore.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), async, zapcore.DebugLevel)
+	core := appender.NewAppenderCore(zapcore.NewConsoleEncoder(encoderConfig), async, zapcore.DebugLevel)
 	logger := zap.New(core)
 
 	logger.Info("this logs async")

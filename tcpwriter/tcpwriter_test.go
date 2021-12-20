@@ -1,4 +1,4 @@
-package zap_ing
+package tcpwriter
 
 import (
 	"errors"
@@ -8,8 +8,8 @@ import (
 	"net"
 	"testing"
 	"time"
-	"zap_ing/test_support"
 
+	"github.com/delixfe/zap_ing/tcpwriter/test_support"
 	"github.com/stretchr/testify/require"
 )
 

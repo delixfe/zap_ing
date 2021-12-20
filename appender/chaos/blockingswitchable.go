@@ -2,27 +2,28 @@ package chaos
 
 import (
 	"context"
+
+	"github.com/delixfe/zap_ing/appender"
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender/appendercore"
 )
 
 var (
-	_ appendercore.Appender = &BlockingSwitchable{}
-	_ Switchable            = &BlockingSwitchable{}
+	_ appender.Appender = &BlockingSwitchable{}
+	_ Switchable        = &BlockingSwitchable{}
 )
 
 type BlockingSwitchable struct {
-	primary appendercore.Appender
+	primary appender.Appender
 	enabled bool
 	waiting chan struct{}
 	ctx     context.Context
 }
 
-func NewBlockingSwitchable(inner appendercore.Appender) *BlockingSwitchable {
+func NewBlockingSwitchable(inner appender.Appender) *BlockingSwitchable {
 	return NewBlockingSwitchableCtx(nil, inner)
 }
 
-func NewBlockingSwitchableCtx(ctx context.Context, inner appendercore.Appender) *BlockingSwitchable {
+func NewBlockingSwitchableCtx(ctx context.Context, inner appender.Appender) *BlockingSwitchable {
 	if ctx == nil {
 		ctx = context.Background()
 	}

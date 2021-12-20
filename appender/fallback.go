@@ -3,22 +3,21 @@ package appender
 import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender/appendercore"
 )
 
-var _ appendercore.SynchronizationAwareAppender = &Fallback{}
+var _ SynchronizationAwareAppender = &Fallback{}
 
 type Fallback struct {
-	primary   appendercore.Appender
-	secondary appendercore.Appender
+	primary   Appender
+	secondary Appender
 }
 
 // NewFallback forwards the message to secondary, if writing to primary returned an error.
 // secondary is wrapped in a Synchronizing appender.
-func NewFallback(primary, secondary appendercore.Appender) *Fallback {
+func NewFallback(primary, secondary Appender) *Fallback {
 	return &Fallback{
 		primary:   primary,
-		secondary: appendercore.NewSynchronizing(secondary),
+		secondary: NewSynchronizing(secondary),
 	}
 }
 
@@ -43,5 +42,5 @@ func (a *Fallback) Sync() error {
 }
 
 func (a *Fallback) Synchronized() bool {
-	return appendercore.Synchronized(a.primary)
+	return Synchronized(a.primary)
 }

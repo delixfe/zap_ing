@@ -2,10 +2,9 @@ package appender
 
 import (
 	"go.uber.org/zap/zapcore"
-	"zap_ing/appender/appendercore"
 )
 
-var _ appendercore.Appender = &Writer{}
+var _ Appender = &Writer{}
 
 type Writer struct {
 	out zapcore.WriteSyncer
@@ -20,7 +19,7 @@ func (a *Writer) Write(p []byte, ent zapcore.Entry) (n int, err error) {
 }
 
 func (a *Writer) Sync() error {
-	return a.Sync()
+	return a.out.Sync()
 }
 
 func (a *Writer) Synchronized() bool {

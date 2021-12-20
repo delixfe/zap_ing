@@ -2,11 +2,12 @@ package chaos
 
 import (
 	"context"
-	"go.uber.org/zap/zapcore"
 	"sync/atomic"
 	"testing"
 	"time"
-	"zap_ing/appender"
+
+	"github.com/delixfe/zap_ing/appender"
+	"go.uber.org/zap/zapcore"
 )
 
 func TestBlockingSwitchable_Break(t *testing.T) {

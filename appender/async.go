@@ -3,13 +3,13 @@ package appender
 import (
 	"context"
 	"errors"
+	"sync/atomic"
+	"time"
+
+	"github.com/delixfe/zap_ing/appender/internal/bufferpool"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
-	"sync/atomic"
-	"time"
-	"zap_ing/appender/appendercore"
-	"zap_ing/internal/bufferpool"
 )
 
 // TODO: message structs could be used in general
@@ -22,7 +22,7 @@ type writeMessage struct {
 
 var ErrAppenderShutdown = errors.New("appender shut down")
 
-var _ appendercore.SynchronizationAwareAppender = &Async{}
+var _ SynchronizationAwareAppender = &Async{}
 
 type Async struct {
 	// only during construction
@@ -30,8 +30,8 @@ type Async struct {
 	calculateDropThresholdFn func(*Async) (int, error)
 
 	// readonly
-	primary           appendercore.Appender
-	fallback          appendercore.Appender
+	primary           Appender
+	fallback          Appender
 	monitorPeriod     time.Duration
 	fallbackThreshold int
 	syncTimeout       time.Duration
@@ -42,7 +42,7 @@ type Async struct {
 	shutdown   int32 // incremented by Shutdown
 }
 
-func NewAsync(primary appendercore.Appender, options ...AsyncOption) (a *Async, err error) {
+func NewAsync(primary Appender, options ...AsyncOption) (a *Async, err error) {
 	if primary == nil {
 		return nil, errors.New("primary is required")
 	}
@@ -134,6 +134,8 @@ func (a *Async) monitorQueueWrite() {
 		toFree := a.fallbackThreshold - available
 		for i := 0; i < toFree; i++ {
 			select {
+			case <-a.close:
+				return
 			case msg := <-a.queueWrite:
 				if msg.flushMarker() {
 					continue

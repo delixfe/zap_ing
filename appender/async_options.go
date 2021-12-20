@@ -3,7 +3,6 @@ package appender
 import (
 	"errors"
 	"time"
-	"zap_ing/appender/appendercore"
 )
 
 type AsyncOption interface {
@@ -28,12 +27,12 @@ func AsyncMaxQueueLength(length int) AsyncOption {
 
 // AsyncOnQueueNearlyFullForwardTo
 // fallback is wrapped in a Synchronizing appender.
-func AsyncOnQueueNearlyFullForwardTo(fallback appendercore.Appender) AsyncOption {
+func AsyncOnQueueNearlyFullForwardTo(fallback Appender) AsyncOption {
 	return asyncOptionsFunc(func(async *Async) error {
 		if fallback == nil {
 			return errors.New("fallback must not be nil")
 		}
-		async.fallback = appendercore.NewSynchronizing(fallback)
+		async.fallback = NewSynchronizing(fallback)
 		return nil
 	})
 }

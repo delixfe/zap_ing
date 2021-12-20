@@ -1,15 +1,16 @@
 package appender_test
 
 import (
-	"go.uber.org/zap"
-	"go.uber.org/zap/buffer"
-	"go.uber.org/zap/zapcore"
+	"context"
 	"io"
 	"strings"
 	"testing"
 	"time"
-	"zap_ing/appender"
-	"zap_ing/appender/appendercore"
+
+	"github.com/delixfe/zap_ing/appender"
+	"go.uber.org/zap"
+	"go.uber.org/zap/buffer"
+	"go.uber.org/zap/zapcore"
 )
 
 type benchConfig struct {
@@ -66,12 +67,12 @@ func BenchmarkFallbackEnveloping(b *testing.B) {
 					appender.AsyncQueueMonitorPeriod(time.Hour),
 				)
 				b.Cleanup(func() {
-					a.Shutdown(nil)
+					a.Shutdown(context.TODO())
 				})
 				RunWithAppender(a, b, config)
 			})
 			b.Run("chained_no_async", func(b *testing.B) {
-				var a appendercore.Appender = writer
+				var a appender.Appender = writer
 				a = appender.NewEnvelopingPreSuffix(a, "prefix: ", "")
 				a = appender.NewFallback(a, writer)
 				RunWithAppender(a, b, config)
@@ -80,8 +81,8 @@ func BenchmarkFallbackEnveloping(b *testing.B) {
 	}
 }
 
-func RunWithAppender(a appendercore.Appender, b *testing.B, config benchConfig) {
-	core := appendercore.NewAppenderCore(zapcore.NewJSONEncoder(encoderConfig), a, zapcore.DebugLevel)
+func RunWithAppender(a appender.Appender, b *testing.B, config benchConfig) {
+	core := appender.NewAppenderCore(zapcore.NewJSONEncoder(encoderConfig), a, zapcore.DebugLevel)
 	RunWithCore(core, b, config)
 }
 
