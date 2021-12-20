@@ -1,4 +1,4 @@
-module zap_ing
+module github.com/delixfe/zap_ing
 
 go 1.17
 
