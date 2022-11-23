@@ -201,7 +201,7 @@ func (w *TcpWriter) monitor(conn net.Conn) {
 			continue
 		}
 
-		// Any other error force a reconnect.
+		// Any other error forces a reconnect.
 		w.connStale <- conn
 		return
 	}
